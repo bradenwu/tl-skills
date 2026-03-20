@@ -37,13 +37,24 @@ think "我上个月做了一个失败的投资决策，帮我复盘"
 # 克隆仓库
 git clone https://github.com/bradenwu/tl-skills.git
 
-# 安装技能（创建符号链接）
+# 安装所有技能
 cd tl-skills
+chmod +x install.sh
 ./install.sh
+
+# 或安装单个技能
+./install.sh think
 ```
 
 ---
 
-## 贡献
+## 项目结构
 
-这是个人技能仓库，暂不接受外部贡献。
+```
+tl-skills/
+├── install.sh          # 安装脚本
+├── README.md           # 项目说明
+└── think/              # think 技能
+    ├── SKILL.md        # 技能定义（YAML frontmatter + Markdown）
+    └── think.sh        # 命令行入口
+```
