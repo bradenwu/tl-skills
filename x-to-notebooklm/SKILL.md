@@ -15,19 +15,17 @@ Import X/Twitter posts to NotebookLM and generate audio + video.
 Run the bundled script:
 
 ```bash
-bash scripts/x2nb.sh "<x.com_url>" "[notebook_title]"
+bash scripts/x2nb.sh "<x.com_url>"
 ```
 
 ### Parameters
 
 - **URL** (required): x.com or twitter.com post URL
-- **title** (optional): NotebookLM notebook title. Defaults to "X Post YYYYMMDD_HHMMSS"
 
 ### Examples
 
 ```bash
 bash scripts/x2nb.sh "https://x.com/user/status/123456"
-bash scripts/x2nb.sh "https://x.com/user/status/123456" "AI Agent Insights"
 ```
 
 ## How It Works

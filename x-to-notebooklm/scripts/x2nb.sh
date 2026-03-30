@@ -10,7 +10,6 @@ if [[ "$URL" != *"x.com/"* ]] && [[ "$URL" != *"twitter.com/"* ]]; then
   exit 1
 fi
 
-TITLE="${2:-X Post $(date +%Y%m%d_%H%M%S)}"
 JINA_URL="https://r.jina.ai/${URL}"
 TMPFILE="/tmp/x2nb_${RANDOM}.txt"
 
@@ -18,8 +17,8 @@ echo "📥 Fetching content via Jina..."
 curl -sfS "$JINA_URL" -o "$TMPFILE"
 echo "✅ Content saved to $TMPFILE ($(wc -c < "$TMPFILE") bytes)"
 
-echo "📓 Creating notebook: $TITLE"
-NB_OUTPUT=$(notebooklm create "$TITLE" 2>&1)
+echo "📓 Creating notebook (auto-title)..."
+NB_OUTPUT=$(notebooklm create "" 2>&1)
 NB_ID=$(echo "$NB_OUTPUT" | grep -oP 'Created notebook: \K[a-f0-9-]+')
 if [[ -z "$NB_ID" ]]; then
   echo "❌ Failed to create notebook" >&2
@@ -58,7 +57,7 @@ fi
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Done! Notebook: $TITLE"
+echo "✅ Done! Notebook auto-created"
 echo "📋 Notebook ID: $NB_ID"
 if [[ -n "$AUDIO_TASK" ]]; then echo "🎵 Audio task: $AUDIO_TASK"; fi
 if [[ -n "$VIDEO_TASK" ]]; then echo "🎬 Video task: $VIDEO_TASK"; fi
