@@ -29,6 +29,38 @@ think "用逆向思维帮我想想创业可能踩的坑"
 think "我上个月做了一个失败的投资决策，帮我复盘"
 ```
 
+### tl-pratice-pilot - 工具学习引导教练
+
+基于理想化学习SOP-V2的智能工具学习引导技能，帮助用户从入门到中等程度快速掌握新工具。
+
+**核心理念：**
+- 任务驱动 + 能力地图 + AI对练
+- 减少用户心智负担，AI主动承担大部分工作
+- 渐进式引导，即时反馈机制
+
+**主要特性：**
+- 4天学习计划（快速启动→实战演练→系统提升）
+- 自动收集用户场景和需求
+- 生成个性化学习路径
+- 特殊情况处理（卡住了/不知道/太难/太简单）
+
+**使用方法：**
+```bash
+/tl-pratice-pilot [工具名]
+```
+
+**支持的工具：**
+- Tmux - 终端复用工具
+- Obsidian - 知识管理工具
+- Warp - AI增强终端
+- 其他开发者工具
+
+**学习流程：**
+1. 欢迎并收集用户信息（场景/目标/时间/经验）
+2. AI生成4天个性化学习计划
+3. 每日引导：Day1快速启动 → Day2-3实战演练 → Day4系统提升
+4. 持续支持和问题解答
+
 ---
 
 ## 安装方法
@@ -52,9 +84,11 @@ chmod +x install.sh
 
 ```
 tl-skills/
-├── install.sh          # 安装脚本
-├── README.md           # 项目说明
-└── think/              # think 技能
-    ├── SKILL.md        # 技能定义（YAML frontmatter + Markdown）
-    └── think.sh        # 命令行入口
+├── install.sh              # 安装脚本
+├── README.md               # 项目说明
+├── think/                  # think 技能
+│   ├── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
+│   └── think.sh           # 命令行入口
+└── tl-pratice-pilot/       # 工具学习引导教练技能
+    └── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
 ```
