@@ -61,6 +61,28 @@ think "我上个月做了一个失败的投资决策，帮我复盘"
 3. 每日引导：Day1快速启动 → Day2-3实战演练 → Day4系统提升
 4. 持续支持和问题解答
 
+### tl-daily-note - 每日日志生成器
+
+生成结构化的每日 Markdown 日志模版，帮助建立每日回顾和计划的习惯。
+
+**模版结构：**
+- **昨日复盘** - 回顾昨天：做了什么、在思考什么、第三方洞见与建议
+- **半九十** - 专门盯住"90% 完成但卡住"的事，强制收尾
+- **今日一件事** - 今日最高优先级，只允许一件
+- **TODO项** - 今日任务清单
+- **Time** - 记录各时间段实际在做什么
+- **Think** - 今日涌现的想法、疑问、值得深想的事
+
+**使用方法：**
+```bash
+/tl-daily-note
+# 或自然语言触发
+"创建今天的日志"
+"今天的日记"
+# 携带内容时自动填入「今日一件事」
+/tl-daily-note 今天要完成面试准备
+```
+
 ---
 
 ## 安装方法
@@ -89,6 +111,8 @@ tl-skills/
 ├── think/                  # think 技能
 │   ├── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
 │   └── think.sh           # 命令行入口
-└── tl-pratice-pilot/       # 工具学习引导教练技能
+├── tl-pratice-pilot/       # 工具学习引导教练技能
+│   └── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
+└── tl-daily-note/          # 每日日志生成器技能
     └── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
 ```
