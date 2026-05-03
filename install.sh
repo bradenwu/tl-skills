@@ -1,34 +1,27 @@
 #!/bin/bash
 # tl-skills 安装脚本
 # 用法:
-#   ./install.sh              # 安装所有 skills 到所有检测到的工具
+#   ./install.sh              # 安装所有 skills
 #   ./install.sh <skill-name> # 只安装指定 skill
+#
+# 安装链路（三层）:
+#   git repo → ~/.agents/skills/<skill>  (hub 层，绝对链接)
+#              └→ ~/.claude/skills/<skill>  (相对链接，../../.agents/skills/<name>)
+#              └→ ~/.codex/skills/<skill>   (相对链接，../../.agents/skills/<name>)
+#   cursor-rule.mdc → ~/.cursor/rules/<skill>.mdc (绝对链接)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# ── 检测已安装的工具，构建目标目录列表 ──────────────────────────
-TARGETS=()
+AGENTS_HUB="$HOME/.agents/skills"
+CLAUDE_SKILLS="$HOME/.claude/skills"
+CODEX_SKILLS="$HOME/.codex/skills"
+CURSOR_RULES="$HOME/.cursor/rules"
 
-if [ -d "$HOME/.claude/skills" ]; then
-    TARGETS+=("$HOME/.claude/skills")
-fi
-
-if [ -d "$HOME/.codex/skills" ]; then
-    TARGETS+=("$HOME/.codex/skills")
-fi
-
-# Cursor: 单独处理，因为格式不同（.mdc 而非目录软链接）
-CURSOR_RULES_DIR=""
-if [ -d "$HOME/.cursor/rules" ]; then
-    CURSOR_RULES_DIR="$HOME/.cursor/rules"
-fi
-
-if [ ${#TARGETS[@]} -eq 0 ] && [ -z "$CURSOR_RULES_DIR" ]; then
-    echo "❌ 未找到支持的工具（Claude Code / Codex / Cursor）"
-    echo "   请确认以下任一目录存在："
-    echo "   ~/.claude/skills  ~/.codex/skills  ~/.cursor/rules"
+# hub 层是必需的
+if [ ! -d "$AGENTS_HUB" ]; then
+    echo "❌ ~/.agents/skills 不存在，请先安装 agent-skills 支持"
     exit 1
 fi
 
@@ -46,14 +39,13 @@ fi
 
 echo "tl-skills 安装器"
 echo "================"
-echo "目标工具:"
-for target in "${TARGETS[@]}"; do
-    echo "  → $target"
-done
-[ -n "$CURSOR_RULES_DIR" ] && echo "  → $CURSOR_RULES_DIR (Cursor rules)"
+echo "Hub:    $AGENTS_HUB"
+[ -d "$CLAUDE_SKILLS" ] && echo "Claude: $CLAUDE_SKILLS"
+[ -d "$CODEX_SKILLS"  ] && echo "Codex:  $CODEX_SKILLS"
+[ -d "$CURSOR_RULES"  ] && echo "Cursor: $CURSOR_RULES"
 echo ""
 
-# ── 为每个 skill 创建软链接 ──────────────────────────────────────
+# ── 安装每个 skill ───────────────────────────────────────────────
 for skill in "${SKILLS[@]}"; do
     SKILL_SRC="$SCRIPT_DIR/$skill"
 
@@ -64,24 +56,34 @@ for skill in "${SKILLS[@]}"; do
 
     echo "🔗 $skill"
 
-    # Claude Code / Codex：软链接整个目录
-    for target_dir in "${TARGETS[@]}"; do
-        link="$target_dir/$skill"
-        if [ -e "$link" ] || [ -L "$link" ]; then
-            rm -rf "$link"
-        fi
-        ln -sf "$SKILL_SRC" "$link"
-        echo "   ✅ $(basename $target_dir): $link"
-    done
+    # 层 1: hub — 绝对链接指向 git repo
+    hub_link="$AGENTS_HUB/$skill"
+    [ -e "$hub_link" ] || [ -L "$hub_link" ] && rm -rf "$hub_link"
+    ln -sf "$SKILL_SRC" "$hub_link"
+    echo "   ✅ hub:    $hub_link → $SKILL_SRC"
 
-    # Cursor：软链接 cursor-rule.mdc（格式不同，单独处理）
-    if [ -n "$CURSOR_RULES_DIR" ] && [ -f "$SKILL_SRC/cursor-rule.mdc" ]; then
-        cursor_link="$CURSOR_RULES_DIR/$skill.mdc"
-        if [ -e "$cursor_link" ] || [ -L "$cursor_link" ]; then
-            rm -f "$cursor_link"
-        fi
+    # 层 2: Claude Code — 相对链接指向 hub（匹配既有约定）
+    if [ -d "$CLAUDE_SKILLS" ]; then
+        claude_link="$CLAUDE_SKILLS/$skill"
+        [ -e "$claude_link" ] || [ -L "$claude_link" ] && rm -rf "$claude_link"
+        ln -sf "../../.agents/skills/$skill" "$claude_link"
+        echo "   ✅ claude: $claude_link"
+    fi
+
+    # 层 2: Codex — 相对链接指向 hub
+    if [ -d "$CODEX_SKILLS" ]; then
+        codex_link="$CODEX_SKILLS/$skill"
+        [ -e "$codex_link" ] || [ -L "$codex_link" ] && rm -rf "$codex_link"
+        ln -sf "../../.agents/skills/$skill" "$codex_link"
+        echo "   ✅ codex:  $codex_link"
+    fi
+
+    # Cursor — 单独处理，格式不同（.mdc 单文件）
+    if [ -d "$CURSOR_RULES" ] && [ -f "$SKILL_SRC/cursor-rule.mdc" ]; then
+        cursor_link="$CURSOR_RULES/$skill.mdc"
+        [ -e "$cursor_link" ] || [ -L "$cursor_link" ] && rm -f "$cursor_link"
         ln -sf "$SKILL_SRC/cursor-rule.mdc" "$cursor_link"
-        echo "   ✅ cursor/rules: $cursor_link"
+        echo "   ✅ cursor: $cursor_link"
     fi
 done
 
