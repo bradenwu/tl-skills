@@ -22,3 +22,6 @@ Network Trash Folder
 Temporary Items
 .apdisk
 .claude
+
+# Eval workspace artifacts
+*-workspace/
