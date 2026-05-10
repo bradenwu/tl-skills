@@ -1,0 +1,4 @@
+interface:
+  display_name: "TL Vibe Reading"
+  short_description: "阅读流程教练、Obsidian 记录员和挑错编辑，把 Vibe Reading 落地为可追踪的深度阅读流程。"
+  default_prompt: "用 tl-vibe-reading 帮我为一本书、文章或论文创建 Obsidian 阅读项目，并按搭地图、定目标、做匹配、排优先、读进去、压出来、讲明白推进。"
