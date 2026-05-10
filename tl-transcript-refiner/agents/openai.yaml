@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transcript Refiner"
+  short_description: "整理会议、讲座、访谈等录音转写为清晰纪要。"
+  default_prompt: "请使用 tl-transcript-refiner 整理这段录音转写，保留原意和关键数据，输出为 Markdown。"
