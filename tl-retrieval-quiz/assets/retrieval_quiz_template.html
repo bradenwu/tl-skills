@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Retrieval Quiz</title>
+  <style>
+    :root{--bg:#f7f4ed;--card:#fffdf8;--ink:#202124;--muted:#6b665f;--line:#e4ded2;--accent:#7a4e2d;--accent2:#b57a3b;--good:#176b3a;--bad:#a33a2a;--warn:#8a5a00;--shadow:0 10px 30px rgba(58,43,24,.09)}
+    *{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(circle at top left,#fff7df 0,var(--bg) 34rem);color:var(--ink);line-height:1.65}
+    header,main{max-width:980px;margin:0 auto;padding-left:20px;padding-right:20px} header{padding-top:46px;padding-bottom:22px} h1{margin:0 0 10px;font-size:clamp(28px,4vw,44px);letter-spacing:-.04em}.subtitle,.muted{color:var(--muted)}
+    .panel,.question,.result-card{background:rgba(255,253,248,.94);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.panel{padding:18px 20px;margin-bottom:22px}.scope{padding:20px 22px}.scope h2{margin:0 0 10px;font-size:20px}.scope-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}.scope-item{background:#fff8eb;border:1px solid var(--line);border-radius:14px;padding:12px 14px}.scope-item strong{color:var(--accent)}
+    .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}.progress-wrap{flex:1;min-width:240px}.progress-text{font-size:14px;color:var(--muted);margin-bottom:6px}.progress-bar{height:10px;background:#eee6d8;border-radius:999px;overflow:hidden}.progress-bar>div{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .2s ease}
+    button{border:0;border-radius:999px;padding:10px 16px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(122,78,45,.22)}button.secondary{background:#efe6d8;color:var(--accent);box-shadow:none}button.small{padding:7px 12px;font-size:13px}button:disabled{opacity:.5;cursor:not-allowed}.toggle-active{outline:3px solid rgba(181,122,59,.25)}
+    .section-title{margin:34px 0 14px;display:flex;align-items:center;gap:10px;font-size:22px}.badge{font-size:13px;padding:3px 9px;border-radius:999px;background:#efe6d8;color:var(--accent)}.question{padding:20px;margin:14px 0}.q-head{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.q-num{color:var(--accent);font-weight:800}.q-type{font-size:12px;color:#fff;background:var(--accent2);border-radius:999px;padding:2px 8px}.q-diff,.q-theme{font-size:12px;color:var(--muted);background:#f3eadb;border-radius:999px;padding:2px 8px}.stem{font-weight:700;margin:8px 0 12px}
+    label.option{display:block;padding:10px 12px;margin:8px 0;border:1px solid var(--line);border-radius:12px;background:#fffaf1;cursor:pointer}label.option:hover{border-color:#c9a574}input{margin-right:8px}.short-answer{width:100%;min-height:118px;border:1px solid var(--line);border-radius:12px;padding:12px;resize:vertical;background:#fffaf1;font:inherit;line-height:1.6}.attempt-gate{display:block;margin:10px 0;color:var(--muted)}
+    .source-ref{margin-top:10px;color:var(--muted);font-size:13px;background:#fbf2e3;border-radius:10px;padding:8px 10px}.source-ref code{white-space:normal}.q-actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}.feedback{display:none;margin-top:12px;padding:12px 14px;border-radius:12px;background:#f5efe4;border-left:5px solid var(--accent2)}.question.correct{border-color:rgba(23,107,58,.35)}.question.wrong{border-color:rgba(163,58,42,.42)}.question.correct .feedback{border-left-color:var(--good)}.question.wrong .feedback{border-left-color:var(--bad)}.unanswered{outline:3px solid rgba(138,90,0,.25)}
+    .result-card{display:none;padding:24px;margin:24px 0}.score{font-size:clamp(32px,7vw,64px);font-weight:900;color:var(--accent);line-height:1}.wrong-list li{margin:10px 0}.copybox{width:100%;min-height:130px;border:1px solid var(--line);border-radius:12px;background:#fffaf1;padding:12px;font:13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.top-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}footer{color:var(--muted);font-size:13px;margin:28px 0 64px}@media(max-width:720px){.scope-grid{grid-template-columns:1fr}}@media print{button,.panel.toolbar-panel{display:none}.feedback,.result-card{display:block!important}body{background:white}}
+  </style>
+</head>
+<body>
+<script id="quiz-data" type="application/json">__QUIZ_DATA__</script>
+<header>
+  <h1 id="title">检索巩固测验</h1>
+  <p class="subtitle" id="subtitle">闭卷作答更有效。默认按主题穿插渲染；解析按钮会保护认知努力：客观题需先选择，主观题需勾选“我已尝试作答”。</p>
+</header>
+<main>
+  <section class="panel scope" id="scopePanel"></section>
+  <section class="panel toolbar-panel"><div class="toolbar"><div class="progress-wrap"><div class="progress-text"><span id="answeredCount">0</span>/<span id="totalCount">0</span> 已作答</div><div class="progress-bar"><div id="progressFill"></div></div></div><div class="top-actions"><button id="interleaveBtn" class="secondary toggle-active" type="button">穿插</button><button id="orderedBtn" class="secondary" type="button">顺序</button><button id="submitBtn" type="button">提交评分</button><button id="resetBtn" class="secondary" type="button">重做</button></div></div></section>
+  <section id="result" class="result-card"></section>
+  <form id="quiz"></form>
+  <footer>本页由 <code>index.md</code> 构建生成。修改题目请编辑同目录 <code>index.md</code> 后重建。</footer>
+</main>
+<script>
+const DATA = JSON.parse(document.getElementById('quiz-data').textContent);
+const STORE_KEY = 'tl-retrieval-quiz:' + (DATA.topic || DATA.title || location.pathname);
+let renderMode = 'interleave';
+let ordered = [];
+const $ = (id)=>document.getElementById(id);
+const form=$('quiz'), result=$('result'), answeredCount=$('answeredCount'), totalCount=$('totalCount'), progressFill=$('progressFill');
+function esc(s){return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function letter(i){return String.fromCharCode(65+i)}
+function isSubjective(q){return q.type==='subjective'||q.type==='主观'}
+function typeLabel(q){return ({single:'单选',multiple:'多选',truefalse:'判断',subjective:'主观'}[q.type]||q.type)}
+function sameSet(a,b){return a.length===b.length && [...a].sort((x,y)=>x-y).join(',')===[...b].sort((x,y)=>x-y).join(',')}
+function refHtml(q){const r=q.source_ref;if(!r)return ''; if(r.type==='excerpt')return `<div class="source-ref">来源摘录：${esc(r.value)}</div>`;return `<div class="source-ref">来源：<code>[[${esc(r.value)}]]</code></div>`}
+function interleaved(list){const groups={};list.forEach((q,i)=>{const k=q.theme||'其他';(groups[k] ||= []).push({...q,__orig:i})});const buckets=Object.values(groups);const out=[];let more=true;while(more){more=false;for(const b of buckets){if(b.length){out.push(b.shift());more=true}}}return out}
+function getOrder(){const qs=DATA.questions||[];return renderMode==='interleave'?interleaved(qs):qs.map((q,i)=>({...q,__orig:i}))}
+function save(){const state={};(DATA.questions||[]).forEach((q,i)=>{if(isSubjective(q)){state['q'+i+'_text']=document.querySelector(`[name="q${i}_text"]`)?.value||'';state['q'+i+'_attempt']=document.querySelector(`[name="q${i}_attempt"]`)?.checked||false}else{state['q'+i]=[...document.querySelectorAll(`[name="q${i}"]:checked`)].map(e=>e.value)}});localStorage.setItem(STORE_KEY,JSON.stringify(state));}
+function restore(){try{const state=JSON.parse(localStorage.getItem(STORE_KEY)||'{}');Object.entries(state).forEach(([k,v])=>{if(k.endsWith('_text')){const e=document.querySelector(`[name="${k}"]`);if(e)e.value=v}else if(k.endsWith('_attempt')){const e=document.querySelector(`[name="${k}"]`);if(e)e.checked=!!v}else if(Array.isArray(v)){v.forEach(val=>{const e=document.querySelector(`[name="${k}"][value="${val}"]`);if(e)e.checked=true})}})}catch(e){}}
+function selected(i){return [...document.querySelectorAll(`[name="q${i}"]:checked`)].map(e=>Number(e.value))}
+function textAnswer(i){return document.querySelector(`[name="q${i}_text"]`)?.value.trim()||''}
+function attempted(i){return document.querySelector(`[name="q${i}_attempt"]`)?.checked||false}
+function answered(q,i){return isSubjective(q)?textAnswer(i).length>0:selected(i).length>0}
+function renderScope(){document.title=DATA.title||'检索巩固测验';$('title').textContent=DATA.title||'检索巩固测验';const sc=DATA.scope||{};const sources=(DATA.sources||[]).map(s=>`<li><code>${esc(s)}</code></li>`).join('');const inc=(sc.included||[]).map(x=>`<li>${esc(x)}</li>`).join('');const exc=(sc.excluded||[]).map(x=>`<li>${esc(x)}</li>`).join('');$('scopePanel').innerHTML=`<h2>测试范围</h2><p>${esc(sc.summary||'本测验覆盖 index.md 中声明的已读内容范围。')}</p><div class="scope-grid"><div class="scope-item"><strong>主题</strong><br>${esc(DATA.topic||'')}</div><div class="scope-item"><strong>源文件</strong><ul>${sources}</ul></div><div class="scope-item"><strong>包含</strong><ul>${inc}</ul></div><div class="scope-item"><strong>不包含</strong><ul>${exc}</ul></div></div>`}
+function render(){ordered=getOrder();let html='',cur='';ordered.forEach((q,displayIndex)=>{const i=q.__orig;const level=q.level||'L?';if(level!==cur){cur=level;html+=`<h2 class="section-title">${esc(level)}<span class="badge">${level==='L1'?'识别':level==='L2'?'区分':'应用迁移'}</span></h2>`}html+=`<article class="question" id="qcard${i}"><div class="q-head"><span class="q-num">第 ${displayIndex+1} 题</span><span class="q-type">${esc(typeLabel(q))}</span><span class="q-theme">${esc(q.theme||'')}</span></div><div class="stem">${esc(q.stem)}</div>`;if(isSubjective(q)){html+=`<textarea class="short-answer" name="q${i}_text" placeholder="先闭卷写下你的回答。"></textarea><label class="attempt-gate"><input type="checkbox" name="q${i}_attempt"> 我已尝试作答，解锁参考要点</label>`}else{const inputType=q.type==='multiple'?'checkbox':'radio';html+='<div class="options">';(q.options||[]).forEach((opt,oi)=>{html+=`<label class="option"><input type="${inputType}" name="q${i}" value="${oi}"> ${letter(oi)}. ${esc(opt)}</label>`});html+='</div>'}html+=`${refHtml(q)}<div class="q-actions"><button type="button" class="secondary small reveal-btn" data-index="${i}">查看本题解析</button></div><div class="feedback" id="fb${i}"></div></article>`});form.innerHTML=html;restore();updateProgress()}
+function updateProgress(){const total=(DATA.questions||[]).length;const done=(DATA.questions||[]).filter((q,i)=>answered(q,i)).length;totalCount.textContent=total;answeredCount.textContent=done;progressFill.style.width=(total?done/total*100:0)+'%';save()}
+function answerText(q){return (q.answer||[]).map(i=>`${letter(i)}. ${q.options[i]}`).join('；')}
+function showFeedback(i,submit=false,force=false){const q=DATA.questions[i], card=$('qcard'+i), fb=$('fb'+i);if(isSubjective(q)){if(!attempted(i)&&!force){fb.style.display='block';fb.innerHTML='<strong>先保护检索努力</strong><br>请先写下你的回答，并勾选“我已尝试作答”，再查看参考要点。';return null}fb.style.display='block';fb.innerHTML=`<strong>📝 参考要点</strong><br>${esc(q.sample||'')}<br><strong>解析：</strong>${esc(q.explain||'')}`;return null}const sel=selected(i);if(!sel.length&&!force){fb.style.display='block';fb.innerHTML='<strong>先选择答案</strong><br>请先作答，再查看解析。';return null}const ok=sel.length>0&&sameSet(sel,q.answer||[]);if(submit&&sel.length){card.classList.remove('correct','wrong');card.classList.add(ok?'correct':'wrong')}fb.style.display='block';const chosen=sel.length?sel.map(x=>`${letter(x)}. ${q.options[x]}`).join('；'):'未作答';fb.innerHTML=`<strong>${sel.length?(ok?'✅ 正确':'❌ 错误'):'👀 本题解析'}</strong><br><strong>你的答案：</strong>${esc(chosen)}<br><strong>正确答案：</strong>${esc(answerText(q))}<br><strong>解释：</strong>${esc(q.explain||'')}`;return ok}
+function stamp(){const d=new Date();const p=n=>String(n).padStart(2,'0');return {date:`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`,time:`${p(d.getHours())}:${p(d.getMinutes())}`,file:`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`};}
+function yourAnswerText(d){if(d.sub)return d.ans||'(未作答)';return d.sel&&d.sel.length?d.sel.map(x=>`${letter(x)}. ${d.q.options[x]}`).join('；'):'(未作答)';}
+function oneLineRecord(s,pct,attemptedObj,wrongThemes){return `| ${s.date} | ${attemptedObj?pct+'%':'未评分'} | ${wrongThemes.join('、')||'无'} | 复盘错题并间隔 1 天后重测 |`;}
+function fullRecord(s,details,pct,correct,attemptedObj,unansweredN,wrongThemes){
+  const head=[`## 作答存档 · ${s.date} ${s.time}`,'',
+    `- 主题：${DATA.topic||DATA.title||''}`,
+    `- 得分：${attemptedObj?pct+'%':'未评分'}（客观题答对 ${correct}/${attemptedObj}，未答 ${unansweredN}）`,
+    `- 错题主题：${wrongThemes.join('、')||'无'}`,'',
+    '### 逐题速览','| # | 层级 | 题型 | 主题 | 结果 |','|---|---|---|---|---|'];
+  details.forEach(d=>head.push(`| ${d.i+1} | ${d.q.level||''} | ${typeLabel(d.q)} | ${d.q.theme||''} | ${d.status} |`));
+  const blocks=details.filter(d=>d.sub||d.status==='❌').map(d=>{
+    const lines=[`#### 第 ${d.i+1} 题 ${d.status}（${d.q.level||''}·${typeLabel(d.q)}·${d.q.theme||''}）`,`- 题干：${d.q.stem}`];
+    if(d.sub){lines.push('- 你的回答：');(d.ans||'(未作答)').split('\n').forEach(ln=>lines.push(`  > ${ln}`));if(d.q.sample)lines.push(`- 参考要点：${d.q.sample}`);}
+    else{lines.push(`- 你的答案：${yourAnswerText(d)}`);lines.push(`- 正确答案：${answerText(d.q)}`);}
+    if(d.q.explain)lines.push(`- 解析：${d.q.explain}`);
+    if(d.q.source_ref&&d.q.source_ref.type!=='excerpt')lines.push(`- 来源：[[${d.q.source_ref.value}]]`);
+    else if(d.q.source_ref)lines.push(`- 来源摘录：${d.q.source_ref.value}`);
+    return lines.join('\n');
+  });
+  return head.join('\n')+'\n\n### 错题与主观题详情\n\n'+(blocks.join('\n\n')||'（无错题，且本测验无主观题）')+'\n';
+}
+function downloadText(filename,text){const blob=new Blob([text],{type:'text/markdown;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function submitQuiz(){
+  document.querySelectorAll('.question').forEach(e=>e.classList.remove('unanswered','correct','wrong'));
+  const details=(DATA.questions||[]).map((q,i)=>{
+    const sub=isSubjective(q);const did=answered(q,i);
+    const sel=sub?null:selected(i);const ans=sub?textAnswer(i):null;
+    let status;
+    if(sub)status=did?'📝':'⬜';
+    else if(!did)status='⬜';
+    else status=sameSet(sel,q.answer||[])?'✅':'❌';
+    return {q,i,sub,sel,ans,did,status};
+  });
+  let correct=0,attemptedObj=0;const wrong=[],unanswered=[];
+  details.forEach(d=>{
+    if(!d.did){unanswered.push(d.i);$('qcard'+d.i)?.classList.add('unanswered');}
+    if(d.sub){showFeedback(d.i,true,true);return;}
+    if(d.did){attemptedObj++;const ok=showFeedback(d.i,true,true);if(ok)correct++;else wrong.push(d);}
+    else showFeedback(d.i,true,true);
+  });
+  const pct=attemptedObj?Math.round(correct/attemptedObj*100):0;
+  const wrongThemes=[...new Set(wrong.map(x=>x.q.theme||`第${x.i+1}题`))];
+  const s=stamp();
+  const lineMd=oneLineRecord(s,pct,attemptedObj,wrongThemes);
+  const fullMd=fullRecord(s,details,pct,correct,attemptedObj,unanswered.length,wrongThemes);
+  const objTotal=(DATA.questions||[]).filter(q=>!isSubjective(q)).length;
+  result.style.display='block';
+  result.innerHTML=`<div class="score">${attemptedObj?pct+' 分':'未评分'}</div>`
+    +`<p class="muted">客观题已答 ${attemptedObj}/${objTotal}，答对 ${correct}/${attemptedObj||0}。未答 ${unanswered.length} 题；未答 ≠ 学会。</p>`
+    +(wrong.length?`<h3>错题清单</h3><ol class="wrong-list">${wrong.map(w=>`<li><strong>第 ${w.i+1} 题：</strong>${esc(w.q.stem)}<br>主题：${esc(w.q.theme||'')}</li>`).join('')}</ol>`:'<p>🎉 已作答客观题没有错题。</p>')
+    +`<h3>① 复习记录行（贴到 index.md 的“复习记录”表）</h3><textarea class="copybox" readonly>${esc(lineMd)}</textarea>`
+    +`<h3>② 完整作答存档（含你的答案与解析）</h3><textarea class="copybox" style="min-height:220px" readonly>${esc(fullMd)}</textarea>`
+    +`<div class="top-actions"><button type="button" id="copyLine">复制复习记录行</button><button type="button" id="copyFull" class="secondary">复制完整存档</button><button type="button" id="downloadFull">下载存档 .md</button></div>`
+    +`<p class="muted" style="margin-top:10px">下载的文件建议放进 <code>_retrieval/${esc(DATA.topic||'')}/attempts/</code>，下次让 Claudian 归并进 index.md。</p>`;
+  $('copyLine').onclick=()=>navigator.clipboard?.writeText(lineMd);
+  $('copyFull').onclick=()=>navigator.clipboard?.writeText(fullMd);
+  $('downloadFull').onclick=()=>downloadText(`${DATA.topic||'quiz'}-attempt-${s.file}.md`,fullMd);
+  result.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function resetAll(){localStorage.removeItem(STORE_KEY);form.reset();result.style.display='none';document.querySelectorAll('.feedback').forEach(e=>{e.style.display='none';e.innerHTML=''});document.querySelectorAll('.question').forEach(e=>e.classList.remove('unanswered','correct','wrong'));updateProgress();scrollTo({top:0,behavior:'smooth'})}
+renderScope();render();form.addEventListener('change',updateProgress);form.addEventListener('input',updateProgress);form.addEventListener('click',e=>{const b=e.target.closest('.reveal-btn');if(b)showFeedback(Number(b.dataset.index))});$('submitBtn').onclick=submitQuiz;$('resetBtn').onclick=resetAll;$('interleaveBtn').onclick=()=>{renderMode='interleave';$('interleaveBtn').classList.add('toggle-active');$('orderedBtn').classList.remove('toggle-active');render()};$('orderedBtn').onclick=()=>{renderMode='ordered';$('orderedBtn').classList.add('toggle-active');$('interleaveBtn').classList.remove('toggle-active');render()};
+</script>
+</body>
+</html>

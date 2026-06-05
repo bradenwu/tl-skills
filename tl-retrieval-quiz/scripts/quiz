@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  quiz                         List _retrieval projects
+  quiz <topic> [options]       Build _retrieval/<topic>/quiz.html
+
+Options:
+  --no-open                    Build without opening quiz.html
+  --vault <path>               Vault root; defaults to nearest parent with .obsidian or $OBSIDIAN_VAULT
+  --shuffle-seed <seed>        Store build seed in quiz JSON metadata
+  -h, --help                   Show help
+USAGE
+}
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+skill_dir="$(cd "$script_dir/.." && pwd)"
+template="$skill_dir/assets/retrieval_quiz_template.html"
+
+topic=""
+open_after=1
+vault=""
+seed=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-open) open_after=0; shift ;;
+    --vault) vault="${2:-}"; shift 2 ;;
+    --shuffle-seed) seed="${2:-}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    --*) echo "Unknown option: $1" >&2; usage; exit 2 ;;
+    *) if [[ -z "$topic" ]]; then topic="$1"; shift; else echo "Unexpected argument: $1" >&2; exit 2; fi ;;
+  esac
+done
+
+find_vault() {
+  local d="$PWD"
+  while [[ "$d" != "/" ]]; do
+    if [[ -d "$d/.obsidian" ]]; then printf '%s\n' "$d"; return 0; fi
+    d="$(dirname "$d")"
+  done
+  if [[ -n "${OBSIDIAN_VAULT:-}" && -d "${OBSIDIAN_VAULT:-}/.obsidian" ]]; then printf '%s\n' "$OBSIDIAN_VAULT"; return 0; fi
+  return 1
+}
+
+if [[ -z "$vault" ]]; then
+  if ! vault="$(find_vault)"; then
+    echo "Cannot locate vault. Run inside an Obsidian vault or pass --vault <path>." >&2
+    exit 1
+  fi
+fi
+vault="$(cd "$vault" && pwd)"
+retrieval_dir="$vault/_retrieval"
+
+if [[ -z "$topic" ]]; then
+  if [[ ! -d "$retrieval_dir" ]]; then
+    echo "No _retrieval directory found in: $vault"
+    exit 0
+  fi
+  find "$retrieval_dir" -mindepth 1 -maxdepth 1 -type d -print | sed "s#^$retrieval_dir/##" | sort
+  exit 0
+fi
+
+project_dir="$retrieval_dir/$topic"
+index_md="$project_dir/index.md"
+out_html="$project_dir/quiz.html"
+
+if [[ ! -f "$index_md" ]]; then
+  echo "Project not found: $index_md" >&2
+  exit 1
+fi
+if [[ ! -f "$template" ]]; then
+  echo "Template not found: $template" >&2
+  exit 1
+fi
+
+json="$(awk '
+  BEGIN{inblock=0; found=0}
+  /^```quiz-json[[:space:]]*$/ {inblock=1; found=1; next}
+  /^```[[:space:]]*$/ && inblock {inblock=0; next}
+  inblock {print}
+  END{if(!found) exit 3; if(inblock) exit 4}
+' "$index_md")" || {
+  code=$?
+  if [[ $code -eq 3 ]]; then echo "No quiz-json code block found in $index_md" >&2; else echo "Unclosed quiz-json code block in $index_md" >&2; fi
+  exit 1
+}
+
+if command -v python3 >/dev/null 2>&1; then
+  tmp_json="$(mktemp)"
+  printf '%s\n' "$json" > "$tmp_json"
+  python3 -m json.tool "$tmp_json" >/dev/null || { rm -f "$tmp_json"; echo "Invalid JSON in quiz-json block." >&2; exit 1; }
+  if [[ -n "$seed" ]]; then
+    json="$(python3 - "$tmp_json" "$seed" <<'PY'
+import json, sys
+p, seed = sys.argv[1], sys.argv[2]
+data = json.load(open(p, encoding='utf-8'))
+data.setdefault('build', {})['shuffle_seed'] = seed
+print(json.dumps(data, ensure_ascii=False, indent=2))
+PY
+)"
+  fi
+  rm -f "$tmp_json"
+fi
+
+# Prevent embedded JSON from closing the script tag.
+json_safe="$(printf '%s' "$json" | sed 's#</script>#<\\/script>#gI')"
+mkdir -p "$project_dir"
+{
+  printf '%s\n' '<!-- THIS FILE IS AUTO-GENERATED FROM index.md. DO NOT EDIT. -->'
+  printf '%s\n' '<!-- 修改题目请编辑同目录的 index.md 后运行 `quiz <topic>` 重建。 -->'
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" == *"__QUIZ_DATA__"* ]]; then
+      printf '%s
+' "${line/__QUIZ_DATA__/$json_safe}"
+    else
+      printf '%s
+' "$line"
+    fi
+  done < "$template"
+} > "$out_html"
+
+echo "Built: $out_html"
+if [[ "$open_after" -eq 1 ]]; then
+  open "$out_html"
+fi
