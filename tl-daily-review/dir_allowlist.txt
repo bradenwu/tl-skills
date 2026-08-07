@@ -1,0 +1,4 @@
+# 磁盘文件变更扫描的目录白名单。
+# 格式：每行一个绝对路径，以 # 开头为注释。
+# 这里只放 git 仓库和 Obsidian vault 之外的工作目录。
+/Users/wuzhigang/Work

@@ -25,3 +25,7 @@ Temporary Items
 
 # Eval workspace artifacts
 *-workspace/
+
+# Python
+__pycache__/
+*.pyc
