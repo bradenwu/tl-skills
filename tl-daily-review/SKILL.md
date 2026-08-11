@@ -1,12 +1,12 @@
 ---
 name: tl-daily-review
 description: |
-  每日日志复盘技能。先采集 GitHub、本地 git、Obsidian、NotebookLM 的事实数据，再把结果追加到当天日志。
-  该技能自带脚本，适合单用户、强耦合 Obsidian/Codex 的个人复盘自动化。
+  每日日志复盘技能。先采集 GitHub、本地 git、Obsidian、NotebookLM 与 Agent History Bank 的事实数据，
+  再把结果追加到当天日志。该技能自带脚本，适合单用户、强耦合 Obsidian/Codex 的个人复盘自动化。
   当用户表达“每日复盘”“更新当天日志”“昨天做了什么”“daily review”“日志复盘自动化”这类意图时，应优先调用。
   触发词: /tl-daily-review, "每日日志复盘", "更新当天日志", "daily review", "昨天做了什么", "追加复盘"
 user_invocable: true
-version: "1.0.0"
+version: "1.1.0"
 ---
 
 # tl-daily-review — 每日日志复盘
@@ -47,6 +47,7 @@ bash run.sh
 - 远端 commits
 - Obsidian 新增 / 修改
 - NotebookLM 新导入 / 失败 / staging
+- Agent History（昨天与 AI 的所有对话会话清单）
 
 ### 4. 追加到当天日志
 
@@ -64,6 +65,35 @@ tl-daily-review/
 └── scripts/
     └── daily_review_collect.py
 ```
+
+## Agent History Bank（ahb）集成
+
+采集脚本会在运行时自动调用 [Agent History Bank](https://github.com/bradenwu/agent-history-bank)（`ahb`）：
+
+1. 先执行 `ahb sync` 增量归档最新的 Claude Code / Codex 对话历史（幂等，可安全重复运行）。
+2. 再读取 Obsidian 中 `Agent History/Daily/<昨天日期>.md` 的会话索引，
+   汇总到报告的 `agent_history` 字段与 `## Agent History（AI 对话）` 章节。
+
+这样每日复盘时可以直接参考昨天与 AI 的全部对话会话，作为反思的事实基线。
+
+相关环境变量（可选）：
+
+- `TL_DAILY_REVIEW_AHB_BIN`：指定 `ahb` 二进制绝对路径（默认探测 PATH 及 `~/Code/bradenwu/agent-history-bank/ahb`）。
+- `TL_DAILY_REVIEW_AHB_CONFIG`：指定 ahb 配置文件路径（默认 `~/.ahb/config.toml`）。
+
+若 `ahb` 未安装或 sync 失败，采集不会中断，报告会标注 FAIL 并跳过该章节的会话清单。
+
+> **注意**：ahb 配置了本地 Ollama 富集（`enrich_provider = local`）时，首次运行需要为存量通用标题会话批量生成标题，
+> 可能耗时数分钟（受 `max_per_run` 与软失败保护限制）。核心 sync（含 Daily 笔记写入）在富集之前完成，
+> 因此即使富集阶段超时（脚本设 600 秒上限），Daily 笔记仍可正常读取。富集为增量，首次回填后日常运行很快。
+
+## 已知数据质量护栏
+
+采集脚本会把原始数据转成事实基线，但有几类已知瑕疵，叙事前必须心里有数，否则会基于错误数据编故事——本节就是从一次时区误读的踩坑中沉淀出来的。
+
+- **时区（脚本侧已修复，读原始来源时仍要警惕）**：`agent_history.daily_entries[].sessions[].timestamp` 经脚本转换后已是 CST 可读串（如 `2026-08-10 08:07:05 CST`），`timestamp_utc` 保留原始 UTC 供溯源。**但如果直接读 ahb 的 `Agent History/Daily/*.md` 原始笔记，时间戳仍是 UTC（带 `Z`，如 `2026-08-10T00:07:05.684Z`），叙事前必须换算**——`00:07Z` 不是凌晨，是早上 08:07。这正是"凌晨高密度协作"伪命题的根源。
+- **采集噪音**：磁盘扫描会把 `.DS_Store` 等系统/编辑器残留文件计入 Obsidian 新增/修改列表，叙事时需剔除（未来可在采集层加后缀黑名单）。
+- **ahb 未识别率**：ahb 对 codex 来源会话的标题识别率可能偏低（实测可达 63% 的 codex 会话标题是 `Codex Session` 占位符），导致会话清单可读性下降、会话总数语义偏弱，叙事时应标注"含若干未识别标题"。
 
 ## 设计原则
 

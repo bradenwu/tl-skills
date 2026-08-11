@@ -84,6 +84,15 @@ GH_ENV_OVERRIDE_KEYS = (
     "GITHUB_ENTERPRISE_TOKEN",
 )
 
+# Agent History Bank (ahb) 集成
+AHB_CONFIG = Path(
+    os.environ.get(
+        "TL_DAILY_REVIEW_AHB_CONFIG", str(Path.home() / ".ahb" / "config.toml")
+    )
+).expanduser()
+AGENT_HISTORY_ROOT = VAULT_ROOT / "Agent History"
+AGENT_HISTORY_DAILY_DIR = AGENT_HISTORY_ROOT / "Daily"
+
 
 class CommandError(RuntimeError):
     pass
@@ -920,6 +929,134 @@ def collect_notebooklm(window: Window, *, service_ready: bool) -> dict[str, Any]
     return {"imported_items": imported_items, "failures": failures}
 
 
+def find_ahb_bin() -> str | None:
+    """按优先级探测 ahb 二进制路径。"""
+    candidates = [
+        os.environ.get("TL_DAILY_REVIEW_AHB_BIN", ""),
+        shutil.which("ahb") or "",
+        str(Path.home() / "Code" / "bradenwu" / "agent-history-bank" / "ahb"),
+    ]
+    for item in candidates:
+        if item and Path(item).exists() and os.access(item, os.X_OK):
+            return item
+    return None
+
+
+def run_ahb_sync(ahb_bin: str) -> tuple[bool, str]:
+    """运行 ahb sync 增量归档最新 Agent 对话。
+
+    接受退出码 0（成功）与 3（partial，部分会话含无法解析类型但不影响归档）。
+    """
+    try:
+        proc = subprocess.run(
+            [ahb_bin, "sync", "--config", str(AHB_CONFIG)],
+            text=True,
+            capture_output=True,
+            timeout=600,
+        )
+        if proc.returncode in (0, 3):
+            return True, (proc.stdout or proc.stderr).strip()
+        detail = f"rc={proc.returncode} stderr={proc.stderr.strip()}"
+        return False, detail[:300]
+    except Exception as exc:  # noqa: BLE001
+        return False, str(exc)[:300]
+
+
+_AHB_DAILY_LINE = re.compile(
+    r"^-\s+\[\[(?P<link>[^\]|]+)(?:\|(?P<title>[^\]]+))?\]\]\s*·\s*(?P<ts>\S+)"
+)
+
+
+def _to_local_ts(raw: str) -> str:
+    """把 ahb 透传的 ISO UTC 时间戳(带 ``Z``)换算为 CST 可读串。
+
+    ahb Daily 笔记里的时间戳是 UTC(如 ``2026-08-10T00:07:05.684Z``);
+    若直接用于叙事会把 UTC 当本地时间,造成"凌晨高密度协作"之类的时区误读。
+    复用文件顶部的 ``TZ`` 常量(与其它 ``datetime.fromtimestamp(..., TZ)`` 一致)。
+    解析失败时回退为原值,不阻断采集。
+    """
+    try:
+        iso = raw.strip().replace("Z", "+00:00")
+        dt = datetime.fromisoformat(iso).astimezone(TZ)
+        return dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+    except Exception:  # noqa: BLE001
+        return raw
+
+
+def parse_ahb_daily(path: Path) -> list[dict[str, Any]]:
+    """解析 ahb Daily 笔记，提取会话条目。
+
+    每行格式: ``- [[Sessions/…/id|标题]] · ISO 时间戳``
+    """
+    sessions: list[dict[str, Any]] = []
+    if not path.exists():
+        return sessions
+    for line in path.read_text(encoding="utf-8").splitlines():
+        match = _AHB_DAILY_LINE.match(line)
+        if not match:
+            continue
+        link = match.group("link")
+        title = match.group("title") or link.rsplit("/", 1)[-1]
+        raw_ts = match.group("ts")
+        sessions.append(
+            {
+                "title": title,
+                "link": link,
+                "timestamp": _to_local_ts(raw_ts),
+                "timestamp_utc": raw_ts,
+            }
+        )
+    return sessions
+
+
+def collect_agent_history(window: Window) -> dict[str, Any]:
+    """先运行 ahb sync 归档最新 Agent 对话，再汇总时间窗口内每日的会话清单。
+
+    ahb sync 是增量幂等的，每次运行只处理新增历史。
+    采集后读取 ``Agent History/Daily/<日期>.md`` 中窗口内每一天的会话索引，
+    作为每日复盘的 AI 对话事实基线。
+    """
+    ahb_bin = find_ahb_bin()
+    sync_ok = False
+    sync_detail = ""
+
+    if ahb_bin:
+        sync_ok, sync_detail = run_ahb_sync(ahb_bin)
+    else:
+        sync_detail = "ahb 二进制未找到（PATH 或 ~/Code/bradenwu/agent-history-bank/ahb 均不存在）"
+
+    daily_entries: list[dict[str, Any]] = []
+    day = window.start.date()
+    end_day = window.end.date()
+    while day <= end_day:
+        daily_file = AGENT_HISTORY_DAILY_DIR / f"{day.isoformat()}.md"
+        sessions = parse_ahb_daily(daily_file)
+        if sessions:
+            try:
+                rel = str(daily_file.relative_to(VAULT_ROOT))
+            except ValueError:
+                rel = str(daily_file)
+            daily_entries.append(
+                {
+                    "date": day.isoformat(),
+                    "file": rel,
+                    "session_count": len(sessions),
+                    "sessions": sessions,
+                }
+            )
+        day += timedelta(days=1)
+
+    total = sum(item["session_count"] for item in daily_entries)
+    return {
+        "ahb_bin": ahb_bin or "",
+        "ahb_config": str(AHB_CONFIG),
+        "sync_ok": sync_ok,
+        "sync_detail": sync_detail,
+        "total_sessions": total,
+        "daily_entries": daily_entries,
+    }
+
+
 def build_report(window: Window) -> dict[str, Any]:
     github_wait = wait_for_service(
         name="github_api",
@@ -961,6 +1098,7 @@ def build_report(window: Window) -> dict[str, Any]:
         window,
         service_ready=notebooklm_wait.get("ok", False),
     )
+    agent_history_data = collect_agent_history(window)
     return {
         "generated_at": datetime.now(TZ).strftime("%Y-%m-%d %H:%M:%S %Z"),
         "window": {
@@ -978,6 +1116,7 @@ def build_report(window: Window) -> dict[str, Any]:
         "obsidian": obsidian_data,
         "disk": disk_data,
         "notebooklm": notebooklm_data,
+        "agent_history": agent_history_data,
     }
 
 
@@ -1019,6 +1158,21 @@ def render_report_md(report: dict[str, Any]) -> str:
         f"- 导入失败：{len(report['notebooklm']['failures'])}",
         "",
     ]
+    ahb_data = report.get("agent_history", {})
+    if ahb_data:
+        lines.extend(
+            [
+                "## Agent History（AI 对话）",
+                f"- ahb：{ahb_data.get('ahb_bin') or '未找到'}",
+                f"- ahb sync：{'OK' if ahb_data.get('sync_ok') else 'FAIL'}",
+            ]
+        )
+        if not ahb_data.get("sync_ok") and ahb_data.get("sync_detail"):
+            lines.append(f"- sync 详情：{ahb_data['sync_detail'][:200]}")
+        lines.append(
+            f"- 窗口内会话总数：{ahb_data.get('total_sessions', 0)}"
+        )
+        lines.append("")
     if github_preflight.get("failure_summary") or notebooklm_preflight.get("failure_summary"):
         lines.append("### 预检失败摘要")
         if github_preflight.get("failure_summary"):
@@ -1043,6 +1197,12 @@ def render_report_md(report: dict[str, Any]) -> str:
         lines.append("### NotebookLM 失败")
         for item in report["notebooklm"]["failures"]:
             lines.append(f"- {item['title']} ({item['id']}): {item['error']}")
+        lines.append("")
+    ahb_data = report.get("agent_history", {})
+    for entry in ahb_data.get("daily_entries", []):
+        lines.append(f"### Agent History · {entry['date']}（{entry['session_count']} 个会话）")
+        for sess in entry["sessions"]:
+            lines.append(f"- {sess['title']} · {sess['timestamp']}")
         lines.append("")
     return "\n".join(lines).strip() + "\n"
 
