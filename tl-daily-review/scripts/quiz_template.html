@@ -17,17 +17,17 @@
        {{SOURCES}}    → 选题源摘要（如"18 题，来自微信读书《底层逻辑》38 条划线 + Hermes 文章"）
        {{TOTAL}}      → 题数，自动取 Q.length，无需手填
 
-  数据源扫描范围（近 N 天，默认 N=3）：
-    · 05_深度阅读/读书笔记   —— 微信读书划线、读书笔记
-    · Clippings/             —— 网页剪藏
-    · 00_收件箱/NotebookLM/  —— NotebookLM 卡片
-    · _精品动手实践系列/     —— 实践系列（若存在）
+  数据源扫描范围：昨日所有修改文件。
+    · 优先使用 reports/latest.json 的 obsidian.modified_files / obsidian.new_files
+    · 同时纳入 reports/latest.json 的 disk.modified_files / disk.new_files
+    · 从 Markdown、文本、课程材料、NotebookLM 卡片、Clippings、wiki 笔记中选题
+    · 跳过 .DS_Store、.pytest_cache/、二进制缓存、低信息量索引回填、无明确主题的会话镜像
 
   出题原则：
     1. 优先最新摄入（记忆衰退曲线最陡处收益最高）
     2. 概念辨析用选择（choice），多个相似概念并排辨析
     3. 术语/定义回忆用填空（blank）
-    4. 每题必带 why（解析）+ ref（出处）；答错时尤其要把出处讲清
+    4. 每题必带 why（解析）+ ref（出处）；正确答案后必须紧跟依据/出处，方便回查复习
 
   题库字段速查见 Q 数组上方注释。
   ════════════════════════════════════════════════════════════════════════
@@ -219,7 +219,8 @@
   //   acc    可接受答案数组（仅 blank；归一化比较，忽略大小写/标点/空格）
   //   answer 填空题的标准显示答案（仅 blank）
   //   why    解析（答对答错都显示）
-  //   ref    出处（书名章节 / 文章标题 / 划线位置）
+  //   ref    出处（必填；书名章节 / 文章标题 / 划线位置 / wikilink / 文件路径）。
+  //          模板会把 ref 紧跟在“正确答案”后显示，方便回查复习。
   var Q = [
     // 示例 · 选择题：概念辨析把多个相似概念并排
     { cat:'sourceA', type:'choice',
@@ -307,6 +308,17 @@
     updateProgress();
   }
 
+  function answerWithRef(item){
+    var ans = '';
+    if(item.type === 'choice' && item.o && typeof item.a === 'number'){
+      ans = item.o[item.a] || '';
+    } else if(item.type === 'blank'){
+      ans = item.answer || (item.acc && item.acc[0]) || '';
+    }
+    var ref = item.ref || '—';
+    return '正确答案：<b>'+ans+'</b> <span class="ref">（依据：'+ref+'）</span>';
+  }
+
   function setFeedback(i, correct, detail){
     var card = quizEl.querySelector('.q[data-idx="'+i+'"]');
     if(!card) return;
@@ -315,7 +327,8 @@
     fb.className = 'fb show ' + (correct ? 'ok' : 'no');
     var head = correct ? '✓ 正确' : '✗ 不对';
     var html = '<b>'+head+'</b>';
-    if(detail) html += ' · '+detail;
+    html += ' · '+answerWithRef(item);
+    if(detail) html += '<br>'+detail;
     html += '<div class="why">'+(item.why||'')+'<br><span class="ref">出处：'+(item.ref||'—')+'</span></div>';
     fb.innerHTML = html;
   }
@@ -348,9 +361,7 @@
     card.classList.add('done', correct?'right':'wrong');
     var blk = card.querySelector('.blk');
     if(blk){ blk.classList.add('revealed'); blk.textContent = item.answer; }
-    var detail = '正确答案：<b>'+item.answer+'</b>';
-    var ansLine = document.createElement('div'); ansLine.className='blank-answer'; ansLine.innerHTML=detail;
-    input.parentNode.after(ansLine);
+    // 正确答案与依据统一由 setFeedback 渲染，避免在填空题上重复出现两遍
     setFeedback(i, correct, correct? '' : '你的答案：「'+val.trim()+'」');
     save(); updateProgress();
   }

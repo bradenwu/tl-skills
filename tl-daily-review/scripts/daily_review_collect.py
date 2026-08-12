@@ -65,7 +65,7 @@ DIR_ALLOWLIST_PATH = Path(
 DISK_IGNORE_DIR_NAMES = {
     ".git", ".svn", ".hg", "__pycache__", "node_modules",
     ".obsidian", ".trash", "venv", ".venv", "env",
-    ".next", ".nuxt", "dist", "build", ".cache",
+    ".next", ".nuxt", "dist", "build", ".cache", ".pytest_cache",
     "DerivedData", ".gradle", ".idea",
 }
 DISK_IGNORE_FILE_SUFFIXES = {
@@ -575,7 +575,7 @@ def collect_disk_changes(window: Window) -> dict[str, Any]:
                 if d not in DISK_IGNORE_DIR_NAMES and not d.startswith("~$")
             ]
             for fname in filenames:
-                if fname.startswith("~$"):
+                if fname.startswith("~$") or fname in DISK_IGNORE_FILE_SUFFIXES:
                     continue
                 fpath = Path(dirpath) / fname
                 suffix = fpath.suffix.lower()
