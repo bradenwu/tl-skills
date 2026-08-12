@@ -83,6 +83,26 @@ think "我上个月做了一个失败的投资决策，帮我复盘"
 /tl-daily-note 今天要完成面试准备
 ```
 
+### tl-daily-review - 每日日志复盘
+
+带脚本的日志复盘技能。先采集 GitHub、本地 git、Obsidian、NotebookLM 与 Agent History Bank 的事实数据，再基于报告追加当天日志，并完成复盘后的增值动作。
+
+**主要特性：**
+- 自带 Python 采集脚本与 `run.sh`
+- GitHub / NotebookLM 连通性预检
+- 远端 commit 校验 + 本地 commit 补全
+- NotebookLM 首次时间缓存，避免 `created_at` 漂移
+- 正式目录不可写时自动降级到 staging
+- 集成 Agent History Bank（`ahb`），把昨天与 AI 的会话纳入事实基线（时间戳转 CST）
+- 必选收尾：启发式发散 + 知识检索回顾（基于昨日修改文件出题，生成单文件 HTML）
+
+**使用方法：**
+```bash
+/tl-daily-review
+# 或先手动跑采集层
+bash ~/.codex/skills/tl-daily-review/run.sh
+```
+
 ---
 
 ## 安装方法
@@ -113,6 +133,13 @@ tl-skills/
 │   └── think.sh           # 命令行入口
 ├── tl-pratice-pilot/       # 工具学习引导教练技能
 │   └── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
-└── tl-daily-note/          # 每日日志生成器技能
-    └── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
+├── tl-daily-note/          # 每日日志生成器技能
+│   └── SKILL.md           # 技能定义（YAML frontmatter + Markdown）
+└── tl-daily-review/        # 每日日志复盘技能
+    ├── SKILL.md           # 技能定义
+    ├── run.sh             # 技能入口
+    ├── repo_allowlist.txt # 远端仓库白名单
+    └── scripts/
+        ├── daily_review_collect.py
+        └── quiz_template.html  # 知识检索回顾 HTML 模板
 ```
